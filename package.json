@@ -1,0 +1,27 @@
+{
+  "name": "knox-faction-map",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "engines": { "node": ">=22.13" },
+  "scripts": {
+    "tiles": "node scripts/tiles.mjs",
+    "predev": "npm run tiles",
+    "dev": "node --watch --env-file-if-exists=.env server/index.mjs --dev",
+    "prebuild": "npm run tiles",
+    "build": "vite build",
+    "start": "node --env-file-if-exists=.env server/index.mjs",
+    "test": "node --test"
+  },
+  "dependencies": {
+    "express": "^5.1.0",
+    "leaflet": "^1.9.4",
+    "@lucide/vue": "^1.75.0",
+    "vue": "^3.5.0"
+  },
+  "devDependencies": {
+    "@vitejs/plugin-vue": "^6.0.0",
+    "sharp": "^0.35.5",
+    "vite": "^7.0.0"
+  }
+}
