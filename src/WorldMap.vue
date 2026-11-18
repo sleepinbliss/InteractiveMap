@@ -105,7 +105,7 @@ async function initialize() {
     return
   }
   try {
-    const response = await fetch('/tiles/manifest.json')
+    const response = await fetch(`${import.meta.env.BASE_URL}tiles/manifest.json`)
     if (!response.ok) throw new Error('Missing map tiles')
     const manifest = await response.json()
     if (!alive) return
@@ -117,7 +117,7 @@ async function initialize() {
     })
     bounds = L.latLngBounds(map.unproject([0, world.h], nativeZoom), map.unproject([world.w, 0], nativeZoom))
     map.setMaxBounds(bounds.pad(0.35))
-    tiles = L.tileLayer(`/tiles/${manifest.version}/{z}/{y}/{x}.webp`, {
+    tiles = L.tileLayer(`${import.meta.env.BASE_URL}tiles/${manifest.version}/{z}/{y}/{x}.webp`, {
       bounds, noWrap: true, minZoom: -3, minNativeZoom: 0, maxNativeZoom: nativeZoom,
       maxZoom: nativeZoom + 1, tileSize: manifest.tileSize
     }).on('tileerror', () => { tileError.value = 'Some map tiles did not load.' }).addTo(map)

@@ -1,7 +1,7 @@
 import { createHash, randomUUID } from 'node:crypto'
 import { DatabaseSync } from 'node:sqlite'
 import express from 'express'
-import { limits, parseMarker } from '../shared/markers.mjs'
+import { limits, parseBackup, parseMarker } from '../shared/markers.mjs'
 import { defaultMarkerColor } from '../shared/marker-color.mjs'
 import { backupFormat, backupVersion, maxBackupBytes } from '../shared/backup.mjs'
 
@@ -51,24 +51,12 @@ export function createBoard({ database }) {
     .update(JSON.stringify([current, incoming])).digest('hex')
 
   function readBackup(value, res) {
-    if (value?.format !== backupFormat || value.version !== backupVersion || !Array.isArray(value.markers)) {
-      res.status(400).json({ error: 'Choose a supported Knox Field Map backup file.' })
+    try { return parseBackup(value) }
+    catch (error) {
+      if (!(error instanceof TypeError)) throw error
+      res.status(400).json({ error: error.message })
       return null
     }
-    if (value.markers.length > limits.markers) {
-      res.status(400).json({ error: `A backup can contain at most ${limits.markers} markers.` })
-      return null
-    }
-    const incoming = []
-    for (const [index, raw] of value.markers.entries()) {
-      try { incoming.push(parseMarker(raw)) }
-      catch (error) {
-        if (!(error instanceof TypeError)) throw error
-        res.status(400).json({ error: `Backup marker ${index + 1}: ${error.message}` })
-        return null
-      }
-    }
-    return incoming
   }
 
   router.get('/backup', (_req, res) => {

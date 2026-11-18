@@ -1,6 +1,7 @@
 .env
 node_modules/
 dist/
+dist-pages/
 public/tiles/
 .tiles-build/
 data/

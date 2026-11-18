@@ -10,6 +10,7 @@
     "dev": "node --watch --env-file-if-exists=.env server/index.mjs --dev",
     "prebuild": "npm run tiles",
     "build": "vite build",
+    "build:pages": "npm run tiles && vite build --mode pages",
     "start": "node --env-file-if-exists=.env server/index.mjs",
     "test": "node --test"
   },

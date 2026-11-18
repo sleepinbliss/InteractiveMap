@@ -2,7 +2,7 @@
 import { computed, nextTick, onMounted, onUnmounted, ref } from 'vue'
 import { ArrowDownToLine, ArrowRight, ArrowUpFromLine, Crosshair, Flag, Focus, MapPin, Pencil, Plus, Search, Trash2, Users, X } from '@lucide/vue'
 import WorldMap from './WorldMap.vue'
-import { api } from './api.js'
+import { api, readOnly } from './api.js'
 import { filterMarkers } from './search.js'
 import { defaultMarkerColor } from '../shared/marker-color.mjs'
 import { maxBackupBytes } from '../shared/backup.mjs'
@@ -53,9 +53,9 @@ async function refresh() {
     if (JSON.stringify(markers.value) !== JSON.stringify(list)) markers.value = list
     loaded.value = true
     syncError.value = ''
-  } catch {
+  } catch (error) {
     if (requested !== request) return
-    syncError.value = 'Could not sync with the board. Retrying shortly.'
+    syncError.value = readOnly ? `${error.message} Retrying shortly.` : 'Could not sync with the board. Retrying shortly.'
   }
 }
 
@@ -109,7 +109,7 @@ async function save() {
     if (!results.value.some(marker => marker.id === saved.id)) query.value = ''
     select(saved.id)
     editor.value.close()
-    notice.value = id ? 'Marker updated.' : 'Marker added to the shared board.'
+    notice.value = id ? 'Marker updated.' : 'Marker added to the editor.'
     void refresh()
   } catch (error) {
     if ([404, 409].includes(error.status)) void refresh()
@@ -126,7 +126,7 @@ async function deleteMarker() {
     markers.value = markers.value.filter(marker => marker.id !== id)
     selectedId.value = ''
     editor.value.close()
-    notice.value = 'Marker removed from the shared board.'
+    notice.value = 'Marker removed from the editor.'
     void refresh()
   } catch (error) {
     if ([404, 409].includes(error.status)) void refresh()
@@ -134,15 +134,15 @@ async function deleteMarker() {
   } finally { busy.value = false }
 }
 
-async function downloadBackup() {
+async function downloadBackup(forPages = false) {
   backupBusy.value = true
   backupError.value = ''
   try {
     const backup = await api('backup')
-    const url = URL.createObjectURL(new Blob([JSON.stringify(backup)], { type: 'application/json' }))
+    const url = URL.createObjectURL(new Blob([`${JSON.stringify(backup, null, 2)}\n`], { type: 'application/json' }))
     const link = document.createElement('a')
     link.href = url
-    link.download = `knox-field-map-${backup.exportedAt.replace(/[:.]/g, '-')}.json`
+    link.download = forPages ? 'markers.json' : `knox-field-map-${backup.exportedAt.replace(/[:.]/g, '-')}.json`
     link.click()
     setTimeout(() => URL.revokeObjectURL(url), 1000)
   } catch (error) {
@@ -187,7 +187,7 @@ async function restoreBackup() {
     query.value = ''
     mode.value = 'all'
     restoreDialog.value.close()
-    notice.value = `Backup restored: ${count} ${count === 1 ? 'marker' : 'markers'} on the shared board.`
+    notice.value = `Backup restored: ${count} ${count === 1 ? 'marker' : 'markers'} in the editor.`
     await refresh()
   } catch (error) {
     if (error.status === 409) restoreDraft.value.token = ''
@@ -201,7 +201,9 @@ function onEscape(event) {
 
 onMounted(() => {
   void refresh()
-  refreshTimer = setInterval(refresh, 8000)
+  refreshTimer = setInterval(() => {
+    if (!readOnly || !loaded.value) void refresh()
+  }, 8000)
   window.addEventListener('keydown', onEscape)
 })
 onUnmounted(() => { clearInterval(refreshTimer); window.removeEventListener('keydown', onEscape) })
@@ -213,7 +215,7 @@ onUnmounted(() => { clearInterval(refreshTimer); window.removeEventListener('key
       <div class="brand-icon"><Crosshair :size="25" :stroke-width="1.7" /></div>
       <div><p class="overline brand-kicker">PROJECT ZOMBOID</p><h1>Knox Field Map</h1></div>
     </div>
-    <span class="board-badge"><span :class="['status-dot', { online: loaded && !syncError }]"></span>{{ syncError ? 'Sync interrupted' : loaded ? 'Shared board' : 'Connecting' }}</span>
+    <span class="board-badge"><span :class="['status-dot', { online: loaded && !syncError }]"></span>{{ syncError ? 'Load interrupted' : readOnly ? 'Read-only map' : loaded ? 'Marker editor' : 'Connecting' }}</span>
   </header>
 
   <main class="workspace">
@@ -230,7 +232,7 @@ onUnmounted(() => { clearInterval(refreshTimer); window.removeEventListener('key
           <div class="filters" role="group" aria-label="Search by">
             <button v-for="filter in modes" :key="filter.id" type="button" :aria-pressed="mode === filter.id" @click="mode = filter.id">{{ filter.label }}</button>
           </div>
-          <div class="placement-actions">
+          <div v-if="!readOnly" class="placement-actions">
             <button class="primary" type="button" :disabled="!mapReady" @click="togglePlacement"><component :is="placing ? X : Plus" :size="19" /> {{ placing ? 'Cancel placement' : 'Add marker' }}</button>
             <button class="icon-button" type="button" aria-label="Enter map coordinates" title="Enter map coordinates" :disabled="!mapReady" @click="openCoordinates"><Focus :size="19" /></button>
           </div>
@@ -254,7 +256,7 @@ onUnmounted(() => { clearInterval(refreshTimer); window.removeEventListener('key
               <p class="overline"><Users :size="14" /> PLAYERS ({{ marker.players.length }})</p>
               <ul v-if="marker.players.length" class="roster"><li v-for="player in marker.players" :key="player">{{ player }}</li></ul>
               <p v-else class="muted">No players listed.</p>
-              <button class="text-button" type="button" @click="openEditor(marker)"><Pencil :size="14" /> Edit marker</button>
+              <button v-if="!readOnly" class="text-button" type="button" @click="openEditor(marker)"><Pencil :size="14" /> Edit marker</button>
             </div>
           </article>
         </div>
@@ -262,11 +264,12 @@ onUnmounted(() => { clearInterval(refreshTimer); window.removeEventListener('key
         <div v-else-if="loaded" class="empty-state">
           <div class="empty-icon"><MapPin :size="23" /></div>
           <strong>{{ query.trim() ? 'No matching locations' : 'No field markers yet' }}</strong>
-          <p>{{ query.trim() ? 'Try another name or search category.' : 'Add your first marker to start mapping your faction.' }}</p>
+          <p>{{ query.trim() ? 'Try another name or search category.' : readOnly ? 'No markers have been published yet.' : 'Add your first marker to start mapping your faction.' }}</p>
         </div>
         <footer class="directory-footer"><span><Flag :size="14" /> {{ counts.factions }} {{ counts.factions === 1 ? 'faction' : 'factions' }}</span><span><Users :size="15" /> {{ counts.players }} {{ counts.players === 1 ? 'player' : 'players' }}</span></footer>
-        <div class="backup-tools" role="group" aria-label="Board backups">
-          <button type="button" class="text-button" :disabled="backupBusy" @click="downloadBackup"><ArrowDownToLine :size="15" /> Download backup</button>
+        <div v-if="!readOnly" class="backup-tools" role="group" aria-label="Board backups">
+          <button type="button" class="text-button" :disabled="backupBusy" @click="downloadBackup(true)"><ArrowDownToLine :size="15" /> Export for GitHub Pages</button>
+          <button type="button" class="text-button" :disabled="backupBusy" @click="downloadBackup()"><ArrowDownToLine :size="15" /> Download backup</button>
           <button type="button" class="text-button" :disabled="backupBusy" @click="backupInput.click()"><ArrowUpFromLine :size="15" /> Restore backup</button>
           <input ref="backupInput" type="file" accept=".json,application/json" hidden @change="chooseBackup" />
           <p v-if="backupError" class="error" role="alert">{{ backupError }}</p>
@@ -276,7 +279,7 @@ onUnmounted(() => { clearInterval(refreshTimer); window.removeEventListener('key
     <WorldMap ref="map" :markers="results" :selected="selectedId" :placing="placing" :draft="draft" @ready="mapReady = true" @place="openEditor" @select="select($event, false)" />
   </main>
 
-  <dialog ref="editor" class="dialog" @close="draft = null" @cancel="busy && $event.preventDefault()">
+  <dialog v-if="!readOnly" ref="editor" class="dialog" @close="draft = null" @cancel="busy && $event.preventDefault()">
     <form v-if="draft" @submit.prevent="save">
       <div class="dialog-heading"><div><p class="overline section-tag"><MapPin :size="14" /> X {{ draft.x }} / Y {{ draft.y }}</p><h2>{{ draft.id ? 'Edit field marker' : 'New field marker' }}</h2></div><button type="button" class="icon-button" aria-label="Close editor" :disabled="busy" @click="closeEditor"><X :size="19" /></button></div>
       <label class="form-label">Faction name<input v-model="draft.faction" maxlength="80" required autofocus placeholder="e.g. Riverside Crew" /></label>
@@ -296,7 +299,7 @@ onUnmounted(() => { clearInterval(refreshTimer); window.removeEventListener('key
     </form>
   </dialog>
 
-  <dialog ref="coordinateDialog" class="dialog" @close="coords = null">
+  <dialog v-if="!readOnly" ref="coordinateDialog" class="dialog" @close="coords = null">
     <form v-if="coords" @submit.prevent="placeByCoordinates">
       <div class="dialog-heading"><div><p class="overline section-tag"><Crosshair :size="14" /> PRECISE PLACEMENT</p><h2>Enter coordinates</h2></div><button type="button" class="icon-button" aria-label="Close coordinates" @click="coordinateDialog.close()"><X :size="19" /></button></div>
       <div class="coordinate-fields">
@@ -307,11 +310,11 @@ onUnmounted(() => { clearInterval(refreshTimer); window.removeEventListener('key
     </form>
   </dialog>
 
-  <dialog ref="restoreDialog" class="dialog" aria-labelledby="restore-heading" @close="restoreDraft = null" @cancel="backupBusy && $event.preventDefault()">
+  <dialog v-if="!readOnly" ref="restoreDialog" class="dialog" aria-labelledby="restore-heading" @close="restoreDraft = null" @cancel="backupBusy && $event.preventDefault()">
     <form v-if="restoreDraft" @submit.prevent="restoreBackup">
       <h2 id="restore-heading">Replace shared markers?</h2>
       <p class="backup-filename">{{ restoreDraft.filename }}</p>
-      <p>This will remove all {{ restoreDraft.currentCount }} current markers and replace them with {{ restoreDraft.incomingCount }} markers from the backup. It affects everyone on the shared board.</p>
+      <p>This will remove all {{ restoreDraft.currentCount }} current markers and replace them with {{ restoreDraft.incomingCount }} markers from the backup.</p>
       <p class="muted">Download a fresh backup first if you want to keep a copy of the current board.</p>
       <p v-if="restoreError" class="error" role="alert">{{ restoreError }}</p>
       <div class="dialog-actions">
