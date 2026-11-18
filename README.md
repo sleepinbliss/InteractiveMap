@@ -46,7 +46,7 @@ The dev server automatically restarts when backend code changes. If an older edi
 ## Edit and publish a static snapshot without Supabase
 
 1. Select **Add marker**, then click or tap the map. Or use **Enter map coordinates** beside that button to place a pin by X/Y. These are coordinates on the supplied map (origin at the top left).
-2. Enter the faction and its players, one name per line. Pick a **Marker color** for the pin and faction name, then save. You can change the color later by editing the marker.
+2. Enter the faction and its players, one name per input. A blank input appears as you fill the last row, and the list scrolls after four rows. Pick a **Marker color** for the pin and faction name, then save. You can change the color later by editing the marker.
 3. Hover over a map marker to see its roster, with each player on a separate row. Search by full or partial name (case-insensitive), and use **Players** or **Factions** to limit the search. Selecting a result centers the map on that marker; use **Edit marker** to update its roster or delete it.
 
 4. Click **Export for GitHub Pages** to download `markers.json`. The export reads all saved markers from the local editor, regardless of search filters. Replace [`public/markers.json`](./public/markers.json) with that file, then commit and push to the repository's default branch. Edits are not published until that push has deployed.

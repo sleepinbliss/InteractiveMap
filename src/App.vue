@@ -48,6 +48,7 @@ let authSubscription
 let refreshTimer, requested = 0
 
 const modes = [{ id: 'all', label: 'All' }, { id: 'factions', label: 'Factions' }, { id: 'players', label: 'Players' }]
+const maxPlayers = 50
 const results = computed(() => filterMarkers(markers.value, query.value, mode.value))
 const selected = computed(() => results.value.find(marker => marker.id === selectedId.value))
 const canAdmin = computed(() => !readOnly && (!cloud || role.value === 'admin'))
@@ -92,9 +93,21 @@ function openEditor(location) {
   notice.value = ''
   formError.value = ''
   confirmDelete.value = false
-  draft.value = { color: defaultMarkerColor, ...location, faction: location.faction || '', roster: location.players?.join('\n') || '' }
+  const roster = [...(location.players || [])]
+  if (roster.length < maxPlayers) roster.push('')
+  draft.value = { color: defaultMarkerColor, ...location, faction: location.faction || '', roster }
   editor.value.showModal()
   void nextTick(() => editor.value?.querySelector('input')?.focus())
+}
+
+function updatePlayer(index, name) {
+  const roster = draft.value.roster
+  roster[index] = name
+  if (index === roster.length - 1 && name.trim() && roster.length < maxPlayers) {
+    roster.push('')
+  } else if (index === roster.length - 2 && !name.trim() && roster.at(-1) === '') {
+    roster.pop()
+  }
 }
 
 function openCoordinates() {
@@ -119,7 +132,7 @@ async function save() {
   busy.value = true
   formError.value = ''
   const { id, version, x, y, faction, roster, color } = draft.value
-  const body = { x, y, faction, version, color, players: roster.split(/\r?\n/).map(name => name.trim()).filter(Boolean) }
+  const body = { x, y, faction, version, color, players: roster.map(name => name.trim()).filter(Boolean) }
   try {
     if (!id && submitting.value) {
       const { version: _version, ...submission } = body
@@ -400,7 +413,13 @@ onUnmounted(() => { authSubscription?.unsubscribe(); clearInterval(refreshTimer)
       <p v-if="submitting" class="muted">No account needed. The board owner will review your suggestion before it appears publicly.</p>
       <label class="form-label">Faction name<input v-model="draft.faction" maxlength="80" required autofocus placeholder="e.g. Riverside Crew" /></label>
       <label class="form-label marker-color-field">Marker color<input v-model="draft.color" type="color" /></label>
-      <label class="form-label">Players based here <span class="muted">(optional)</span><textarea v-model="draft.roster" rows="5" maxlength="4100" placeholder="One player name per line"></textarea></label>
+      <fieldset class="form-label player-fields">
+        <legend>Players based here <span class="muted">(optional)</span></legend>
+        <div class="player-inputs">
+          <input v-for="(player, index) in draft.roster" :key="index" :value="player" :aria-label="`Player ${index + 1}`"
+            maxlength="80" placeholder="Player name" @input="updatePlayer(index, $event.target.value)" />
+        </div>
+      </fieldset>
       <p v-if="formError" class="error" role="alert">{{ formError }}</p>
       <div v-if="confirmDelete" class="delete-confirm">
         <p>Remove this location for everyone on the board?</p>
