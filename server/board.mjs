@@ -3,7 +3,7 @@ import { DatabaseSync } from 'node:sqlite'
 import express from 'express'
 import { limits, parseBackup, parseMarker } from '../shared/markers.mjs'
 import { defaultMarkerColor } from '../shared/marker-color.mjs'
-import { backupFormat, backupVersion, maxBackupBytes } from '../shared/backup.mjs'
+import { createBackup, maxBackupBytes } from '../shared/backup.mjs'
 
 const serialize = ({ players, ...marker }) => ({ ...marker, players: JSON.parse(players) })
 
@@ -60,8 +60,7 @@ export function createBoard({ database }) {
   }
 
   router.get('/backup', (_req, res) => {
-    const markers = readBoard().map(({ x, y, faction, players, color }) => ({ x, y, faction, players, color }))
-    res.json({ format: backupFormat, version: backupVersion, exportedAt: new Date().toISOString(), markers })
+    res.json(createBackup(readBoard()))
   })
   router.post('/backup/preview', backupJson, (req, res) => {
     const incoming = readBackup(req.body, res)

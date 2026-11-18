@@ -13,7 +13,7 @@ npm.cmd run dev
 
 Open [http://127.0.0.1:5173](http://127.0.0.1:5173). The first run generates WebP tiles from your supplied map; subsequent runs reuse them. The original map files are unchanged.
 
-The dev server automatically restarts when backend code changes. If you already had an older dev server running and a new feature says **Endpoint not found**, stop it with **Ctrl+C**, run `npm.cmd run dev` again, and refresh the page.
+The dev server automatically restarts when backend code changes. If an older editor says **Endpoint not found**, stop the server with **Ctrl+C** in the terminal that originally started it, then run `npm.cmd run dev` and refresh the page. If the new terminal says port 5173 is already in use, the original server is still running.
 
 ## Edit and publish markers
 
@@ -21,7 +21,7 @@ The dev server automatically restarts when backend code changes. If you already 
 2. Enter the faction and its players, one name per line. Pick a **Marker color** for the pin and faction name, then save. You can change the color later by editing the marker.
 3. Hover over a map marker to see its roster, with each player on a separate row. Search by full or partial name (case-insensitive), and use **Players** or **Factions** to limit the search. Selecting a result centers the map on that marker; use **Edit marker** to update its roster or delete it.
 
-4. Click **Export for GitHub Pages** to download `markers.json`. Replace [`public/markers.json`](./public/markers.json) with that file, then commit and push to the repository's default branch. Edits are not published until that push has deployed.
+4. Click **Export for GitHub Pages** to download `markers.json`. The export reads all saved markers from the local editor, regardless of search filters. Replace [`public/markers.json`](./public/markers.json) with that file, then commit and push to the repository's default branch. Edits are not published until that push has deployed.
 
 On a new machine, import the last published [`public/markers.json`](./public/markers.json) using **Restore backup** before editing so your export doesn't replace the existing board with an incomplete set. To bring over markers from Render, download a backup from Render and restore it in the local editor first.
 

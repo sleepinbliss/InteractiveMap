@@ -31,4 +31,10 @@ if (dev) {
 
 const host = process.env.HOST || '127.0.0.1'
 const port = Number(process.env.PORT || 5173)
-app.listen(port, host, () => console.log(`Knox Field Map: http://${host}:${port}`))
+app.listen(port, host, error => {
+  if (error?.code === 'EADDRINUSE') {
+    throw new Error(`Port ${port} is already in use. Stop the other map server before starting this one.`, { cause: error })
+  }
+  if (error) throw error
+  console.log(`Knox Field Map: http://${host}:${port}`)
+})

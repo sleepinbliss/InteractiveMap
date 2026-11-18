@@ -5,7 +5,7 @@ import WorldMap from './WorldMap.vue'
 import { api, readOnly } from './api.js'
 import { filterMarkers } from './search.js'
 import { defaultMarkerColor } from '../shared/marker-color.mjs'
-import { maxBackupBytes } from '../shared/backup.mjs'
+import { createBackup, maxBackupBytes } from '../shared/backup.mjs'
 import world from '../MapData/zomboid_world_map.json'
 
 const map = ref(null)
@@ -138,7 +138,7 @@ async function downloadBackup(forPages = false) {
   backupBusy.value = true
   backupError.value = ''
   try {
-    const backup = await api('backup')
+    const backup = createBackup(await api('markers'))
     const url = URL.createObjectURL(new Blob([`${JSON.stringify(backup, null, 2)}\n`], { type: 'application/json' }))
     const link = document.createElement('a')
     link.href = url
