@@ -1,6 +1,9 @@
-export const readOnly = import.meta.env.MODE === 'pages'
+import { cloud, cloudApi } from './supabase.js'
+
+export const readOnly = import.meta.env.MODE === 'pages' && !cloud
 
 export async function api(endpoint, method = 'GET', body) {
+  if (cloud) return cloudApi(endpoint, method, body)
   if (readOnly) {
     if (endpoint !== 'markers' || method !== 'GET') throw new Error('The published map is read-only.')
     const response = await fetch(`${import.meta.env.BASE_URL}markers.json`, { cache: 'no-cache' })
